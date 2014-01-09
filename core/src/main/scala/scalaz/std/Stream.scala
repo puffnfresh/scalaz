@@ -9,8 +9,8 @@ trait StreamInstances {
     def traverseImpl[G[_], A, B](fa: Stream[A])(f: A => G[B])(implicit G: Applicative[G]): G[Stream[B]] = {
       val seed: G[Stream[B]] = G.point(Stream[B]())
 
-      foldRight(fa, seed) {
-        (x, ys) => G.apply2(f(x), ys)((b, bs) => b #:: bs)
+      foldLeft(fa, seed) {
+        (ys, x) => G.apply2(f(x), ys)((b, bs) => b #:: bs)
       }
     }
 
