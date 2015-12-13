@@ -22,6 +22,12 @@ sealed abstract class IO[A] {
   def unsafePerformIO(): A = apply(ivoryTower).run._2
 
   /**
+   * Runs I/O and performs side-effects as a java.lang.Runnable object.
+   */
+  def unsafeRunnable: Runnable =
+    new Runnable { def run() { unsafePerformIO } }
+
+  /**
    * Constructs an IO action whose steps may be interleaved with another.
    * An unsafe operation, since it exposes a trampoline that allows one to
    * step through the components of the IO action.

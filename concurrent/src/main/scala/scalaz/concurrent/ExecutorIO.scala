@@ -17,7 +17,7 @@ case class SubmitIO(submit: IO[Unit] => IO[ForkedIO])
 object SubmitIO {
   def fromExecutorService(e: ExecutorService) =
     SubmitIO { io =>
-      IO(e.submit(new Runnable { def run() { io.unsafePerformIO } })).map { f =>
+      IO(e.submit(io.unsafeRunnable)).map { f =>
         ForkedIO.fromFuture(f)
       }
     }
@@ -28,7 +28,7 @@ case class ScheduleIO(schedule: (IO[Unit], Long, TimeUnit) => IO[ForkedIO])
 object ScheduleIO {
   def fromScheduledExecutorService(e: ScheduledExecutorService) =
     ScheduleIO { (io, t, tu) =>
-      IO(e.schedule(new Runnable { def run() { io.unsafePerformIO } }, t, tu)).map { f =>
+      IO(e.schedule(io.unsafeRunnable, t, tu)).map { f =>
         ForkedIO.fromFuture(f)
       }
     }
