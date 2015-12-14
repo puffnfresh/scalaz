@@ -69,8 +69,8 @@ object ExecutorIO {
   def waitBoth[A, B](ioa: IO[A], iob: IO[B]): IO[(A, B)] =
     for {
       af <- forkToMVar(ioa)
-      a <- af._1.read
       bf <- forkToMVar(iob)
+      a <- af._1.read
       b <- bf._1.read
     } yield (a, b)
 }
