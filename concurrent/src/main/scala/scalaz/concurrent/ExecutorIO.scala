@@ -59,4 +59,18 @@ object ExecutorIO {
       e <- fixedThreadPool(1)
       s <- e.submit(io.map(_ => ()))
     } yield s
+
+  def forkToMVar[A](io: IO[A]): IO[(MVar[A], ForkedIO)] =
+    for {
+      m <- MVar.newEmptyMVar[A]
+      f <- forkIO(io.flatMap(m.put(_)))
+    } yield (m, f)
+
+  def waitBoth[A, B](ioa: IO[A], iob: IO[B]): IO[(A, B)] =
+    for {
+      af <- forkToMVar(ioa)
+      a <- af._1.read
+      bf <- forkToMVar(iob)
+      b <- bf._1.read
+    } yield (a, b)
 }
