@@ -45,7 +45,7 @@ object ExecutorIO {
     for {
       x <- MVar.newEmptyMVar[Unit]
       _ <- e.schedule(x.put(()), t, tu)
-      _ <- x.read
+      _ <- x.take
     } yield ()
 
   def timeout(t: Long, tu: TimeUnit) =
@@ -60,17 +60,35 @@ object ExecutorIO {
       s <- e.submit(io.map(_ => ()))
     } yield s
 
-  def forkToMVar[A](io: IO[A]): IO[(MVar[A], ForkedIO)] =
+  def submitToMVar[A](io: IO[A], e: SubmitIO): IO[(MVar[A], ForkedIO)] =
     for {
       m <- MVar.newEmptyMVar[A]
-      f <- forkIO(io.flatMap(m.put(_)))
+      f <- e.submit(io.flatMap(m.put(_)))
     } yield (m, f)
 
-  def waitBoth[A, B](ioa: IO[A], iob: IO[B]): IO[(A, B)] =
+  def waitAny[A](ios: NonEmptyList[IO[A]], e: SubmitIO): IO[A] =
     for {
-      af <- forkToMVar(ioa)
-      bf <- forkToMVar(iob)
-      a <- af._1.read
-      b <- bf._1.read
+      m <- MVar.newEmptyMVar[A]
+      fs <- Traverse[NonEmptyList].traverse(ios) { io => e.submit(io.flatMap(m.put(_))) }
+      a <- m.take
+      _ <- Traverse[NonEmptyList].traverse_(fs)(_.cancel)
+    } yield a
+
+  def waitBoth[A, B](ioa: IO[A], iob: IO[B], e: SubmitIO): IO[(A, B)] =
+    for {
+      af <- submitToMVar(ioa, e)
+      bf <- submitToMVar(iob, e)
+      a <- af._1.take
+      b <- bf._1.take
     } yield (a, b)
+
+  def waitEither[A, B](ioa: IO[A], iob: IO[B], e: SubmitIO): IO[A \/ B] =
+    for {
+      m <- MVar.newEmptyMVar[A \/ B]
+      af <- e.submit(ioa.flatMap(a => m.put(-\/(a))))
+      bf <- e.submit(iob.flatMap(b => m.put(\/-(b))))
+      ab <- m.take
+      _ <- af.cancel
+      _ <- bf.cancel
+    } yield ab
 }
