@@ -83,12 +83,5 @@ object ExecutorIO {
     } yield (a, b)
 
   def waitEither[A, B](ioa: IO[A], iob: IO[B], e: SubmitIO): IO[A \/ B] =
-    for {
-      m <- MVar.newEmptyMVar[A \/ B]
-      af <- e.submit(ioa.flatMap(a => m.put(-\/(a))))
-      bf <- e.submit(iob.flatMap(b => m.put(\/-(b))))
-      ab <- m.take
-      _ <- af.cancel
-      _ <- bf.cancel
-    } yield ab
+    waitAny(NonEmptyList(ioa.map(-\/(_)), iob.map(\/-(_))), e)
 }
